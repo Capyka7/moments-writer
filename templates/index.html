@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>moments-writer · 朋友圈文案生成器</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+            background:#f5f5f7;
+            color:#1d1d1f;min-height:100vh;line-height:1.6
+        }
+        .topbar{
+            background:rgba(255,255,255,0.9);backdrop-filter:blur(12px);
+            border-bottom:1px solid #e5e5e7;
+            padding:0 20px;height:48px;display:flex;align-items:center;
+            position:sticky;top:0;z-index:100;
+        }
+        .topbar .logo{font-weight:600;font-size:15px;display:flex;align-items:center;gap:6px;color:#1d1d1f}
+        .topbar .spacer{flex:1}
+        .topbar button{
+            background:transparent;border:1px solid #d2d2d7;color:#1d1d1f;
+            padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;
+            font-family:inherit;display:flex;align-items:center;gap:5px;transition:.15s
+        }
+        .topbar button:hover{background:#f5f5f7}
+
+        .container{max-width:680px;margin:0 auto;padding:24px 16px 40px}
+
+        .card{
+            background:white;border-radius:12px;padding:20px;
+            margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,0.04);
+            border:1px solid #e5e5e7
+        }
+        .card-label{
+            font-size:13px;font-weight:500;color:#555;margin-bottom:8px;
+            display:flex;align-items:center;gap:6px
+        }
+        .card-label svg{width:15px;height:15px;color:#666}
+
+        textarea,input,select{
+            width:100%;padding:12px 14px;border:1.5px solid #e0e0e0;
+            border-radius:10px;font-size:14px;font-family:inherit;
+            transition:.2s;background:#fafafa;color:#1a1a2e
+        }
+        textarea:focus,input:focus,select:focus{
+            outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,0.12);
+            background:#fff
+        }
+        textarea{min-height:72px;resize:vertical}
+
+        .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+        @media(max-width:480px){.row2{grid-template-columns:1fr}}
+
+        .btn{
+            display:flex;align-items:center;justify-content:center;gap:8px;
+            width:100%;padding:12px;border:none;border-radius:8px;
+            font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;
+            background:#1d1d1f;color:white;transition:.15s
+        }
+        .btn:hover{background:#333}
+        .btn:disabled{opacity:.4;cursor:not-allowed}
+
+        .result-item{
+            background:#f8f8fa;border-radius:10px;padding:14px 16px;
+            margin-bottom:8px;border:1px solid #eee
+        }
+        .result-item .text{font-size:14px;line-height:1.8;color:#333}
+        .result-item .tags{font-size:12px;color:#555;margin-top:4px}
+        .result-item .actions{
+            display:flex;gap:6px;margin-top:8px;padding-top:8px;
+            border-top:1px solid #eee
+        }
+        .result-item .actions button{
+            padding:5px 12px;border:1px solid #ddd;border-radius:6px;
+            background:white;font-size:12px;cursor:pointer;color:#555;
+            font-family:inherit;transition:.1s
+        }
+        .result-item .actions button:hover{border-color:#999;color:#333}
+        .result-item .actions button.copied{border-color:#22c55e;color:#22c55e;background:#f0fdf4}
+
+        .spinner{width:24px;height:24px;border:2px solid #e0e0e0;border-top-color:#333;border-radius:50%;animation:spin .8s linear infinite;margin:24px auto}
+        @keyframes spin{to{transform:rotate(360deg)}}
+
+        .tab-group{
+            display:flex;background:white;border-radius:10px;overflow:hidden;
+            margin-bottom:12px;border:1px solid #e5e5e7;padding:3px
+        }
+        .tab-group button{
+            flex:1;padding:9px;border:none;background:transparent;font-size:13px;
+            cursor:pointer;color:#888;border-radius:8px;
+            font-family:inherit;transition:.12s
+        }
+        .tab-group button.active{background:#1d1d1f;color:white;font-weight:500}
+        .tab-group button:hover:not(.active){background:#f0f0f0}
+
+        .fav-item{
+            display:flex;gap:12px;align-items:flex-start;
+            padding:14px 0;border-bottom:1px solid #f0f0f0
+        }
+        .fav-item:last-child{border-bottom:none}
+        .fav-item .fb{flex:1}
+        .fav-item .fb .t{font-size:13px;line-height:1.7;color:#333}
+        .fav-item .fb .m{font-size:11px;color:#999;margin-top:4px}
+        .fav-item .del{
+            color:#ccc;cursor:pointer;font-size:16px;border:none;
+            background:none;padding:4px;line-height:1;transition:.12s
+        }
+        .fav-item .del:hover{color:#ef4444}
+
+        .empty-state{text-align:center;padding:32px 20px;color:#bbb;font-size:13px}
+
+        /* Modal */
+        .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:200;align-items:center;justify-content:center}
+        .modal.show{display:flex}
+        .modal-card{background:white;border-radius:16px;width:420px;max-width:90vw;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+        .modal-card h2{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+        .modal-card .field{margin-bottom:14px}
+        .modal-card .field label{display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:4px}
+        .modal-card .field input,.modal-card .field select{font-size:13px;padding:10px 12px}
+        .modal-card .actions{display:flex;gap:8px;margin-top:18px}
+        .modal-card .actions button{
+            flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;
+            font-weight:600;cursor:pointer;font-family:inherit
+        }
+        .modal-card .actions .btn-save{background:#1d1d1f;color:white}
+        .modal-card .actions .btn-save:hover{background:#333}
+        .modal-card .actions .btn-cancel{background:#f0f0f0;color:#555}
+        .modal-card .actions .btn-cancel:hover{background:#e0e0e0}
+        .saved-tip{display:none;font-size:12px;color:#166534;margin-top:8px;align-items:center;gap:6px}
+        .hint-text{font-size:12px;color:#999;text-align:center;margin-top:16px}
+        .hint-text code{background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:11px}
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <div class="logo">✏️ <span>moments-writer</span></div>
+    <div class="spacer"></div>
+    <button onclick="openSettings()">⚙️ 设置</button>
+</div>
+
+<div class="container">
+
+    <div class="tab-group">
+        <button class="active" onclick="switchTab('gen')">✍️ 生成</button>
+        <button onclick="switchTab('fav')">❤️ 收藏</button>
+    </div>
+
+    <!-- Tab: Generate -->
+    <div id="tab-gen">
+        <div class="card">
+            <div class="card-label">📝 今天想发什么？</div>
+            <textarea id="topic" placeholder="比如：今天去海边了，天气很好，心情不错 ✨"></textarea>
+
+            <div style="height:12px"></div>
+            <div class="row2">
+                <select id="style">
+                    <option value="casual">日常唠嗑</option>
+                    <option value="aesthetic">文艺唯美</option>
+                    <option value="funny">搞笑沙雕</option>
+                    <option value="inspirational">励志正能量</option>
+                    <option value="foodie">美食探店</option>
+                    <option value="travel">旅行记录</option>
+                    <option value="emotional">情感抒发</option>
+                    <option value="minimal">极简冷淡</option>
+                </select>
+                <select id="count">
+                    <option value="1">1 条</option>
+                    <option value="2">2 条</option>
+                    <option value="3" selected>3 条</option>
+                    <option value="5">5 条</option>
+                </select>
+            </div>
+
+            <label style="display:flex;flex-direction:row;align-items:center;gap:6px;font-size:13px;color:#666;margin-bottom:14px;cursor:pointer;white-space:nowrap">
+                <input type="checkbox" id="withTags" checked style="width:14px;height:14px;margin:0;flex-shrink:0"> 添加话题标签
+            </label>
+
+            <button class="btn" id="genBtn" onclick="generate()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg>
+                生成文案
+            </button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <!-- Tab: Favorites -->
+    <div id="tab-fav" style="display:none">
+        <div class="card">
+            <div class="card-label">❤️ 收藏的文案</div>
+            <input id="favSearch" placeholder="搜索收藏..." oninput="loadFavorites()" style="margin-bottom:12px">
+            <div id="favList"><div class="empty-state">暂无收藏</div></div>
+        </div>
+    </div>
+
+    <div class="hint-text">
+        需要 API Key？点击右上角 ⚙️ 设置 · 或在终端执行 <code>export DEEPSEEK_API_KEY=sk-xxx</code>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal" id="settingsModal">
+    <div class="modal-card">
+        <h2>⚙️ 设置</h2>
+
+        <div class="field">
+            <label>API Key</label>
+            <input type="password" id="setApiKey" placeholder="sk-xxxxxxxxxxxxxxxx">
+        </div>
+        <div class="field">
+            <label>API 地址</label>
+            <input type="text" id="setApiBase" value="https://api.deepseek.com">
+        </div>
+        <div class="field">
+            <label>模型</label>
+            <select id="setModel">
+                <option value="deepseek-chat">DeepSeek Chat</option>
+                <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>默认风格</label>
+            <select id="setStyle">
+                <option value="casual">日常唠嗑</option>
+                <option value="aesthetic">文艺唯美</option>
+                <option value="funny">搞笑沙雕</option>
+                <option value="inspirational">励志正能量</option>
+                <option value="foodie">美食探店</option>
+                <option value="travel">旅行记录</option>
+                <option value="emotional">情感抒发</option>
+                <option value="minimal">极简冷淡</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>默认生成条数</label>
+            <select id="setCount">
+                <option value="1">1 条</option>
+                <option value="2">2 条</option>
+                <option value="3">3 条</option>
+                <option value="5">5 条</option>
+            </select>
+        </div>
+
+        <div class="actions">
+            <button class="btn-cancel" onclick="closeSettings()">取消</button>
+            <button class="btn-save" onclick="saveSettings()">保存</button>
+        </div>
+        <div class="saved-tip" id="savedTip">✅ 设置已保存</div>
+    </div>
+</div>
+
+<script>
+let currentTopic = '';
+
+// === Settings ===
+function openSettings() {
+    const s = JSON.parse(localStorage.getItem('mw_settings') || '{}');
+    document.getElementById('setApiKey').value = s.apiKey || '';
+    document.getElementById('setApiBase').value = s.apiBase || 'https://api.deepseek.com';
+    document.getElementById('setModel').value = s.model || 'deepseek-chat';
+    document.getElementById('setStyle').value = s.defaultStyle || 'casual';
+    document.getElementById('setCount').value = s.defaultCount || '3';
+    document.getElementById('settingsModal').classList.add('show');
+    document.getElementById('savedTip').style.display = 'none';
+}
+function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
+function saveSettings() {
+    const s = {
+        apiKey: document.getElementById('setApiKey').value,
+        apiBase: document.getElementById('setApiBase').value,
+        model: document.getElementById('setModel').value,
+        defaultStyle: document.getElementById('setStyle').value,
+        defaultCount: document.getElementById('setCount').value,
+    };
+    localStorage.setItem('mw_settings', JSON.stringify(s));
+    document.getElementById('savedTip').style.display = 'flex';
+    setTimeout(() => { document.getElementById('savedTip').style.display = 'none'; }, 2500);
+}
+document.getElementById('settingsModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('settingsModal')) closeSettings();
+});
+
+// === Tabs ===
+function switchTab(tab) {
+    document.querySelectorAll('.tab-group button').forEach((b,i) => {
+        b.classList.toggle('active', (tab==='gen' && i===0) || (tab==='fav' && i===1));
+    });
+    document.getElementById('tab-gen').style.display = tab === 'gen' ? '' : 'none';
+    document.getElementById('tab-fav').style.display = tab === 'fav' ? '' : 'none';
+    if (tab === 'fav') loadFavorites();
+}
+
+// === Generate ===
+async function generate() {
+    const topic = document.getElementById('topic').value.trim();
+    if (!topic) { alert('请输入想发的内容'); return; }
+    currentTopic = topic;
+    const s = JSON.parse(localStorage.getItem('mw_settings') || '{}');
+    const btn = document.getElementById('genBtn');
+    btn.disabled = true;
+    document.getElementById('results').innerHTML = '<div class="spinner"></div>';
+
+    try {
+        const resp = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                topic,
+                style: document.getElementById('style').value,
+                count: parseInt(document.getElementById('count').value),
+                with_tags: document.getElementById('withTags').checked,
+                api_key: s.apiKey || '',
+                api_base: s.apiBase || '',
+                model: s.model || '',
+            })
+        });
+        const data = await resp.json();
+        if (data.error) { document.getElementById('results').innerHTML = `<div class="card" style="color:#ef4444;font-size:14px;">${data.error}</div>`; return; }
+
+        let html = '<div class="card"><div class="card-label">✨ 生成结果</div>';
+        data.results.forEach(r => {
+            const t = r.text.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const tg = (r.tags||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            html += `<div class="result-item">
+                <div class="text">${t}</div>
+                ${tg ? `<div class="tags">${tg}</div>` : ''}
+                <div class="actions">
+                    <button onclick="cp(this,'${t.replace(/'/g,"\\'")} ${tg.replace(/'/g,"\\'")}')">📋 复制</button>
+                    <button onclick="saveFav('${t.replace(/'/g,"\\'")}','${tg.replace(/'/g,"\\'")}')">💾 收藏</button>
+                </div>
+            </div>`;
+        });
+        html += '</div>';
+        document.getElementById('results').innerHTML = html;
+    } catch(e) { document.getElementById('results').innerHTML = `<div class="card" style="color:#ef4444;">${e.message}</div>`; }
+    btn.disabled = false;
+}
+
+async function cp(btn, text) {
+    try { await navigator.clipboard.writeText(text); } catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
+    btn.textContent = '✅ 已复制'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 复制'; btn.classList.remove('copied'); }, 2000);
+}
+
+async function saveFav(text, tags) {
+    await fetch('/api/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text, tags, style: document.getElementById('style').value, topic: currentTopic}) });
+    const ev = event.target; ev.textContent = '✅ 已收藏';
+    setTimeout(() => ev.textContent = '💾 收藏', 2000);
+}
+
+// === Favorites ===
+async function loadFavorites() {
+    const q = document.getElementById('favSearch').value;
+    const resp = await fetch(`/api/favorites?q=${encodeURIComponent(q)}`);
+    const data = await resp.json();
+    const el = document.getElementById('favList');
+    if (!data.favorites || data.favorites.length === 0) { el.innerHTML = '<div class="empty-state">暂无收藏</div>'; return; }
+    el.innerHTML = data.favorites.map(f =>
+        `<div class="fav-item">
+            <div class="fb">
+                <div class="t">${f.text.replace(/</g,'&lt;')}</div>
+                ${f.tags ? `<div style="font-size:11px;color:#667eea;margin-top:2px;">${f.tags.replace(/</g,'&lt;')}</div>` : ''}
+                <div class="m">${f.style} · ${f.created_at}</div>
+            </div>
+            <button class="del" onclick="delFav(${f.id})">✕</button>
+        </div>`
+    ).join('');
+}
+
+async function delFav(id) { await fetch(`/api/favorites/${id}`, {method:'DELETE'}); loadFavorites(); }
+</script>
+</body>
+</html>
